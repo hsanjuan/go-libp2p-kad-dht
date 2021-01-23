@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-kbucket/peerdiversity"
 	record "github.com/libp2p/go-libp2p-record"
 
+	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-ipns"
@@ -39,6 +40,7 @@ const DefaultPrefix protocol.ID = "/ipfs"
 
 // Options is a structure containing all the options that can be used when constructing a DHT.
 type config struct {
+	spy                chan<- cid.Cid
 	datastore          ds.Batching
 	validator          record.Validator
 	validatorChanged   bool // if true implies that the validator has been changed and that defaults should not be used
@@ -111,6 +113,7 @@ const defaultBucketSize = 20
 // defaults are the default DHT options. This option will be automatically
 // prepended to any options you pass to the DHT constructor.
 var defaults = func(o *config) error {
+	o.spy = make(chan cid.Cid)
 	o.validator = record.NamespacedValidator{}
 	o.datastore = dssync.MutexWrap(ds.NewMapDatastore())
 	o.protocolPrefix = DefaultPrefix
@@ -167,6 +170,13 @@ func (c *config) validate() error {
 		return fmt.Errorf("protocol prefix %s must use ipns.Validator for the /ipns namespace", DefaultPrefix)
 	}
 	return nil
+}
+
+func Spy(ch chan<- cid.Cid) Option {
+	return func(c *config) error {
+		c.spy = ch
+		return nil
+	}
 }
 
 // RoutingTableLatencyTolerance sets the maximum acceptable latency for peers

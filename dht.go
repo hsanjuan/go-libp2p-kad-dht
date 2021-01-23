@@ -26,6 +26,7 @@ import (
 	recpb "github.com/libp2p/go-libp2p-record/pb"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log"
 	"github.com/jbenet/goprocess"
@@ -78,6 +79,8 @@ type IpfsDHT struct {
 	self      peer.ID   // Local peer (yourself)
 	selfKey   kb.ID
 	peerstore peerstore.Peerstore // Peer Registry
+
+	spy chan<- cid.Cid
 
 	datastore ds.Datastore // Local data
 
@@ -278,6 +281,7 @@ func makeDHT(ctx context.Context, h host.Host, cfg config) (*IpfsDHT, error) {
 	serverProtocols = []protocol.ID{v1proto}
 
 	dht := &IpfsDHT{
+		spy:                    cfg.spy,
 		datastore:              cfg.datastore,
 		self:                   h.ID(),
 		selfKey:                kb.ConvertPeerID(h.ID()),

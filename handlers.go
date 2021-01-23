@@ -12,12 +12,14 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	u "github.com/ipfs/go-ipfs-util"
 	"github.com/libp2p/go-libp2p-kad-dht/internal"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	recpb "github.com/libp2p/go-libp2p-record/pb"
 	"github.com/multiformats/go-base32"
+	"github.com/multiformats/go-multihash"
 )
 
 // dhthandler specifies the signature of functions that handle DHT messages.
@@ -253,6 +255,19 @@ func (dht *IpfsDHT) handlePing(_ context.Context, p peer.ID, pmes *pb.Message) (
 	return pmes, nil
 }
 
+func (dht *IpfsDHT) spyNotif(key []byte) {
+	defer func() {
+		recover()
+	}()
+
+	mh := multihash.Multihash(key)
+
+	select {
+	case dht.spy <- cid.NewCidV0(mh):
+	default:
+	}
+}
+
 func (dht *IpfsDHT) handleFindPeer(ctx context.Context, from peer.ID, pmes *pb.Message) (_ *pb.Message, _err error) {
 	resp := pb.NewMessage(pmes.GetType(), nil, pmes.GetClusterLevel())
 	var closest []peer.ID
@@ -260,6 +275,8 @@ func (dht *IpfsDHT) handleFindPeer(ctx context.Context, from peer.ID, pmes *pb.M
 	if len(pmes.GetKey()) == 0 {
 		return nil, fmt.Errorf("handleFindPeer with empty key")
 	}
+
+	dht.spyNotif(pmes.GetKey())
 
 	// if looking for self... special case where we send it on CloserPeers.
 	targetPid := peer.ID(pmes.GetKey())
@@ -314,6 +331,8 @@ func (dht *IpfsDHT) handleGetProviders(ctx context.Context, p peer.ID, pmes *pb.
 	} else if len(key) == 0 {
 		return nil, fmt.Errorf("handleGetProviders key is empty")
 	}
+
+	dht.spyNotif(key)
 
 	resp := pb.NewMessage(pmes.GetType(), pmes.GetKey(), pmes.GetClusterLevel())
 
